@@ -1,0 +1,17 @@
+
+* run wireshark to read pcap files (V)
+* run cli version of wireshark: tshark to see packet analyzer output (V)
+	** read from offline pcap files (V)
+	** read live packets from wlan0 for example (V)
+* go through all libraries needed (V)
+	/usr/include/netinet/ether.h
+	/usr/include/netinet/ip.h
+	/usr/include/netinet/udp.h
+	/usr/include/net/if_arp.h
+	/usr/include/arpa/inet.h
+	/usr/include/linux/if_ether.h
+	/usr/include/pcap/bpf.h
+* make skeleton code for project
+	** write command-line args parser class (ponder whether struct would be a better choice)
+	** write Makefile
+* read IBM's pcap_open_offline()
