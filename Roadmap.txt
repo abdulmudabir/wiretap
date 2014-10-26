@@ -15,3 +15,4 @@
 	** write command-line args parser class (ponder whether struct would be a better choice)
 	** write Makefile
 * read IBM's pcap_open_offline()
+* write Makefile
