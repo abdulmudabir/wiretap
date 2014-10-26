@@ -2,6 +2,8 @@
 #include <iostream>
 using namespace std;
 
+#include "wt_lib.h"
+
 int extern a;
 
 // include all packet capture helper libraries
@@ -15,6 +17,10 @@ int extern a;
 #include "/usr/include/pcap/pcap.h"
 
 int main(int argc, char *argv[]) {
+
+	ArgsParser wt_args;
+	wt_args.parse_args(argc, argv);
+
 	pcap_t pcap_open_offline()
 
 
