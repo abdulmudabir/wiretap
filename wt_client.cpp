@@ -16,11 +16,13 @@ using namespace std;
 
 int main(int argc, char *argv[]) {
 
-	ArgsParser wt_args;
-	wt_args.parse_args(argc, argv, wt_args);
+	ArgsParser *wt_args = NULL;	// assign to NULL to avoid "uninitialization" warning
+	wt_args->parse_args(argc, argv, &wt_args);	// parse command-line arguments
 
 	// pcap_t pcap_open_offline()
+	cout << "testing in main, Filename: " << wt_args->get_filename() << endl;
 
+	delete wt_args;
 
 	return 0;
 }

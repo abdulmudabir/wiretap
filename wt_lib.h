@@ -17,8 +17,8 @@ class ArgsParser {
 		ArgsParser();	// default constructor
 		ArgsParser(char *);	// parameterized constructor
 		void usage(FILE *);	// instructs on using program options
-		void parse_args(int, char **, ArgsParser);	// scans through cli arguments
-		char * get_filename();	// retrieve packet capture file
+		void parse_args(int, char **, ArgsParser **);	// scans through cli arguments
+		char * get_filename();	// retrieve packet capture filename
 };
 
 #endif
