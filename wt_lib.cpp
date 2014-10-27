@@ -52,7 +52,7 @@ char * ArgsParser::get_filename() {
  * parse_args() -> void
  * function that parses command line arguments to 'wiretap'
  */
-void ArgsParser::parse_args(int argc, char *argv[], ArgsParser **wt_args) {
+void ArgsParser::parse_args(int argc, char *argv[], ArgsParser **wt_args) {	// pass ArgsParser pointer-to-pointer to reach memory allocated in this function
 
     int g;	// grab return value of getopt_long()
     int option_index;	// array index that getopt_long() shall set
