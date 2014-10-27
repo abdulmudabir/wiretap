@@ -4,8 +4,6 @@ using namespace std;
 
 #include "wt_lib.h"
 
-int extern a;
-
 // include all packet capture helper libraries
 #include "/usr/include/netinet/ether.h"
 #include "/usr/include/netinet/ip.h"
@@ -19,9 +17,9 @@ int extern a;
 int main(int argc, char *argv[]) {
 
 	ArgsParser wt_args;
-	wt_args.parse_args(argc, argv);
+	wt_args.parse_args(argc, argv, wt_args);
 
-	pcap_t pcap_open_offline()
+	// pcap_t pcap_open_offline()
 
 
 	return 0;
