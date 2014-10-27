@@ -7,10 +7,23 @@
 #include <cstdio>
 #include <cstring>
 #include <getopt.h>
+#include <cstdlib>
+
+using namespace std;
+
+static int verbose_flag = 0;	// verbose mode
+
+// enter long options to be used at cli
+static struct option long_options[] = {
+	{"help",	no_argument,       0, 'h'},
+	{"verbose", no_argument,       0, 'v'}, 
+	{"open",    required_argument, 0, 'o'},
+	{0, 0, 0, 0}	// last element needs to be filled as all zeros
+};
 
 /* default constructor for class ArgsParser */
 ArgsParser::ArgsParser() {
-	memset(this.filename, 0x00, sizeof(this.filename));	// initially zero-out contents of filename
+	memset(this->filename, 0x00, sizeof(this->filename));	// initially zero-out contents of filename
 	
 }
 
@@ -19,16 +32,21 @@ ArgsParser::ArgsParser() {
  */
 ArgsParser::ArgsParser(char *str) {
 	// memset(this.filename, 0x00, sizeof(this.filename));
-	memcpy(this.filename, str, strlen(str));	// register filename provided at cli
+	memcpy(this->filename, str, strlen(str));	// register filename provided at cli
 }
 
-void ArgsParser::usage(FILE *f) {
-	fprintf(f, "
-				wiretap [OPTIONS] file.pcap\n
-					-h or --help				Print this help screen\n
-					-v or --verbose				verbose flag, print additional information\n
-					--open						Open a packet capture file\n
-		");
+void ArgsParser::usage(FILE *file) {
+	if (file == NULL)
+		file = stdout;	// set standard output by default
+
+	fprintf(file, "wiretap [OPTIONS] example.pcap\n"
+				"	-h or --help			Print this help screen\n"
+				"	-v or --verbose 		verbose flag, print additional information\n"
+				"	--open example.pcap 		Open packet capture file 'example.pcap'\n");
+}
+
+inline char * ArgsParser::get_filename() {
+	return this->filename;
 }
 
 /*
@@ -39,7 +57,7 @@ void ArgsParser::parse_args(int argc, char *argv[], ArgsParser wt_args) {
 
     int g;	// grab return value of getopt_long()
     int option_index;	// array index that getopt_long() shall set
-    while ( (g = getopt_long(argc, argv, "ho", long_options, &option_index)) != -1) {
+    while ( (g = getopt_long(argc, argv, "ho:v", long_options, &option_index)) != -1) {
     	switch(g) {
     		case 'h':
     			wt_args.usage(stdout);
@@ -48,11 +66,12 @@ void ArgsParser::parse_args(int argc, char *argv[], ArgsParser wt_args) {
     			verbose_flag = 1;
     			break;
     		case 'o':
-    			wt_args = wt_args(optarg);
+    			wt_args = ArgsParser(optarg);
     			break;
     		default:
  				wt_args.usage(stdout);
-    			break;   			
+    			exit(1);   			
     	}
     }
+
 }

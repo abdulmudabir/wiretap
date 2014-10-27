@@ -7,14 +7,8 @@
 #ifndef _WT_LIB_H_
 #define _WT_LIB_H_
 
-static int verbose_flag = 0;
-
-static struct option long_options[] = {
-	{"help",	no_argument,       0, 'h'},
-	{"verbose", no_argument,       &verbose_flag, 1}, 
-	{"open",    required_argument, 0, 'o'},
-	{0, 0, 0, 0}	// last element needs to be filled as all zeros
-};
+#include <cstdio>
+#include <getopt.h>
 
 class ArgsParser {
 	private:
@@ -22,8 +16,9 @@ class ArgsParser {
 	public:
 		ArgsParser();	// default constructor
 		ArgsParser(char *);	// parameterized constructor
-		void usage(FILE *);
-		void parse_args(int, char **, ArgsParser);
+		void usage(FILE *);	// instructs on using program options
+		void parse_args(int, char **, ArgsParser);	// scans through cli arguments
+		char * get_filename();	// retrieve packet capture file
 };
 
 #endif
