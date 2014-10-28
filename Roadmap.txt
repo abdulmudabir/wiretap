@@ -11,8 +11,7 @@
 	/usr/include/arpa/inet.h
 	/usr/include/linux/if_ether.h
 	/usr/include/pcap/bpf.h
-* make skeleton code for project
-	** write command-line args parser class (ponder whether struct would be a better choice)
-	** write Makefile
-* read IBM's pcap_open_offline()
+* make skeleton code for project (V)
+	** write command-line args parser class
+* read IBM's pcap_open_offline() (V)
 * write Makefile

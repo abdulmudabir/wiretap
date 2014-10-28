@@ -6,14 +6,12 @@ using namespace std;
 #include "wt_lib.h"
 
 // include all packet capture helper libraries
-#include "/usr/include/netinet/ether.h"
 #include "/usr/include/netinet/ip.h"
 #include "/usr/include/netinet/udp.h"
 #include "/usr/include/net/if_arp.h"
 #include "/usr/include/arpa/inet.h"
-#include "/usr/include/linux/if_ether.h"
 #include "/usr/include/pcap/bpf.h"
-#include "/usr/include/pcap/pcap.h"
+
 
 int main(int argc, char *argv[]) {
 
@@ -28,12 +26,12 @@ int main(int argc, char *argv[]) {
 		exit(1);
 	}
 
-	// look for link-layer header type - Ethernet and none other
-	if (pcap_datalink(pcp) != DLT_EN10MB) {
+	if (pcap_datalink(pcp) != DLT_EN10MB) {	// look for link-layer header type - Ethernet and none other
 		fprintf(stderr, "Ethernet headers not found. Program proceeding to termination.\n");
 		exit(1);
 	} else {
-		
+		pcap_loop(pcp, -1, pcap_callback, NULL);	// loop through each packet until all packets are parsed
+		pcap_close(pcp);	// close packet capture file
 	}
 
 	// release object memory
