@@ -12,7 +12,6 @@ using namespace std;
 #include "/usr/include/arpa/inet.h"
 #include "/usr/include/pcap/bpf.h"
 
-
 int main(int argc, char *argv[]) {
 
 	PacketParser *wt_args = NULL;	// assign to NULL to avoid "uninitialization" warning
@@ -38,7 +37,7 @@ int main(int argc, char *argv[]) {
 		print_map(src_ethaddr_map);
 		cout << endl << endl;
 		cout << "--------- Destination ethernet addresses ---------" << endl << endl;
-		print_map(dest_ethaddr_map);
+		print_map(dst_ethaddr_map);
 
 		pcap_close(pcp);	// close packet capture file
 	}

@@ -14,9 +14,7 @@
 
 // include standard libraries
 #include <iostream>
-#include <cstdio>
 #include <cstring>
-#include <string>
 #include <getopt.h>
 #include <cstdlib>
 #include <map>
@@ -97,7 +95,7 @@ void pcap_callback(u_char *user, const struct pcap_pkthdr* phdr, const u_char *p
 	u_char* pack_data;	// contents of the packet
 
 	/***** parse ethernet header-type *****/
-	parse_ethernet(packet, src_ethaddr_map, dest_ethaddr_map);
+	parse_ethernet(packet);
 
 }
 
@@ -106,50 +104,53 @@ void pcap_callback(u_char *user, const struct pcap_pkthdr* phdr, const u_char *p
  * 		parses the ethernet header-type content in the packet
  * function argument 'const u_char *pkt' is a pointer to the start of the packet header (ETH)
  */
-void parse_ethernet(const u_char *pkt, map<string, int> &src_map, map<string, int> &dest_map) {
+void parse_ethernet(const u_char *pkt) {
 
 	struct ethhdr *eth_hdr = (struct ethhdr *) pkt;	// cast packet to ethernet header type
 	
-	char eth_address[20];	// to store each unique Ethernet address
+	/* get source Ethernet address as a string */
+	string eth_address_src = cons_ethaddr(eth_hdr->h_source);
+
+	/* now, get destination Ethernet address as a string */
+	string eth_address_dst = cons_ethaddr(eth_hdr->h_dest);
+
+	/* insert source eth addr & destination eth addr in their respective "ordered map"s */
+	mapping_ethaddr(eth_address_src, src_ethaddr_map);
+	mapping_ethaddr(eth_address_dst, dst_ethaddr_map);
+
+}
+
+/*
+ * cons_ethaddr() -> string
+ * constructs Ethernet address from an instance of ethernet header-type (struct)
+ */
+string cons_ethaddr(unsigned char *h_addr) {
+	char eth_address[20];	// to store ethernet address
 	memset(eth_address, 0x00, sizeof(eth_address));	// zero-out char array initially
-	char colon[] = ":";
-	
-	/* construct source Ethernet address */
+	char colon[] = ":";	// to insert colon between octets in an ethernet address
+
 	for (int i = 0; i < ETH_ALEN; i++) {
-		sprintf( (eth_address + 3 * i), "%02x", *(eth_hdr->h_source + i) );	// fetch source address from ethhdr structure
+		sprintf( (eth_address + 3 * i), "%02x", *(h_addr + i) );	// fetch destination address from ethhdr structure
 		if ( i < (ETH_ALEN - 1) )
-			memcpy( (eth_address + 2 + 3 * i), colon, 1 );	// insert colons between each octet except at the last 
+			memcpy( (eth_address + 2 + 3 * i), colon, 1 );	// insert colons between octets			
 	}
-	string eth_address_src(eth_address);	// convert char array to string (use string constructor)
+	string eth_address_str(eth_address);	// convert char array to string (use string constructor)
 
-	/* now, construct destination Ethernet address */
-	memset(eth_address, 0x00, sizeof(eth_address));	// first, flush out address holder
-	for (int i = 0; i < ETH_ALEN; i++) {
-		sprintf( (eth_address + 3 * i), "%02x", *(eth_hdr->h_dest + i) );	// fetch destination address from ethhdr structure
-		if ( i < (ETH_ALEN - 1) )
-			memcpy( (eth_address + 2 + 3 * i), colon, 1 );	// insert colons between octets	
-	}
-	string eth_address_dest(eth_address);	// destination eth addr string
+	return eth_address_str;	// return construct ethernet address
+}
 
-	/* insert source eth addr in an 'ordered' map */
-	if ( (itr = src_map.find(eth_address_src)) == src_map.end() ) {	// if src eth addr was not present in map already ...
-		src_map.insert( pair<string, int>(eth_address_src, 1) );	// insert src eth addr in map with its initial count = 1
-	} else
-		itr->second++;	// increase count of already present src eth addr
-
-	/* now, insert destination eth addr in its respective map like above */
-	if ( ( itr = dest_map.find(eth_address_dest) ) == dest_map.end() )
-		dest_map.insert( pair<string, int>(eth_address_dest, 1) );
-	else
-		itr->second++;
+void mapping_ethaddr(string eaddr, map<string, int> &emap) {
+	if ( (itr = emap.find(eaddr)) == emap.end() )	// src eth addr is not already present in map
+		emap.insert( pair<string, int>(eaddr, 1) );	// insert new src eth addr & set its count to 1 initially
+	else	// if src eth addr already present in map
+		itr->second++;	// increase its count
 }
 
 /*
  * print_map() -> void
- * 
+ * 	function prints contents of any map passed as argument
  */
- void print_map(map<std::string, int> &somemap) {
- 	map<string, int>::iterator itr;	// iterator to iterate over map
- 	for ( itr = somemap.begin(); itr != somemap.end(); itr++)
+ void print_map(map<string, int> &anymap) {
+ 	for ( itr = anymap.begin(); itr != anymap.end(); itr++)
  		cout << itr->first << "\t\t" << itr->second << endl;
  }
