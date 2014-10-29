@@ -16,8 +16,11 @@
 #include <iostream>
 #include <cstdio>
 #include <cstring>
+#include <string>
 #include <getopt.h>
 #include <cstdlib>
+#include <map>
+#include <utility>
 
 using namespace std;
 
@@ -31,20 +34,20 @@ static struct option long_options[] = {
 	{0, 0, 0, 0}	// last element needs to be filled as all zeros
 };
 
-/* default constructor for class ArgsParser */
-ArgsParser::ArgsParser() {
+/* default constructor for class PacketParser */
+PacketParser::PacketParser() {
 	memset(this->filename, 0x00, sizeof(this->filename));	// initially zero-out contents of filename
 }
 
-/* parameterized constructor for class ArgsParser 
+/* parameterized constructor for class PacketParser 
  * sets filename 
  */
-ArgsParser::ArgsParser(char *str) {
+PacketParser::PacketParser(char *str) {
 	memset(this->filename, 0x00, sizeof(this->filename));	// for case when default constructor is not called
 	memcpy(this->filename, str, strlen(str));	// register filename provided at cli
 }
 
-void ArgsParser::usage(FILE *file) {
+void PacketParser::usage(FILE *file) {
 	if (file == NULL)
 		file = stdout;	// set standard output by default
 
@@ -54,7 +57,7 @@ void ArgsParser::usage(FILE *file) {
 				"	--open example.pcap 		Open packet capture file 'example.pcap'\n");
 }
 
-char * ArgsParser::get_filename() {
+char * PacketParser::get_filename() {
 	return this->filename;
 }
 
@@ -62,7 +65,7 @@ char * ArgsParser::get_filename() {
  * parse_args() -> void
  * function that parses command line arguments to 'wiretap'
  */
-void ArgsParser::parse_args(int argc, char *argv[], ArgsParser **wt_args) {	// pass ArgsParser pointer-to-pointer to reach memory allocated in this function
+void PacketParser::parse_args(int argc, char *argv[], PacketParser **wt_args) {	// pass PacketParser pointer-to-pointer to reach memory allocated in this function
 
     int g;	// grab return value of getopt_long()
     int option_index;	// array index that getopt_long() shall set
@@ -75,7 +78,7 @@ void ArgsParser::parse_args(int argc, char *argv[], ArgsParser **wt_args) {	// p
     			verbose_flag = 1;
     			break;
     		case 'o':
-    			*wt_args = new ArgsParser(optarg);
+    			*wt_args = new PacketParser(optarg);
     			break;
     		default:
  				(*wt_args)->usage(stdout);
@@ -85,8 +88,6 @@ void ArgsParser::parse_args(int argc, char *argv[], ArgsParser **wt_args) {	// p
 
 }
 
-void parse_ethernet(const u_char *);
-
 void pcap_callback(u_char *user, const struct pcap_pkthdr* phdr, const u_char *packet) {
 	
 	int pkt_length;	// length of the packet
@@ -95,8 +96,8 @@ void pcap_callback(u_char *user, const struct pcap_pkthdr* phdr, const u_char *p
 
 	u_char* pack_data;	// contents of the packet
 
-	parse_ethernet(packet);	// parse ethernet header-type
-	// ETH_HDR_SIZE, 
+	/***** parse ethernet header-type *****/
+	parse_ethernet(packet, src_ethaddr_map, dest_ethaddr_map);
 
 }
 
@@ -105,25 +106,50 @@ void pcap_callback(u_char *user, const struct pcap_pkthdr* phdr, const u_char *p
  * 		parses the ethernet header-type content in the packet
  * function argument 'const u_char *pkt' is a pointer to the start of the packet header (ETH)
  */
-void parse_ethernet(const u_char *pkt) {
+void parse_ethernet(const u_char *pkt, map<string, int> &src_map, map<string, int> &dest_map) {
 
-/*	struct ethhdr *eth_hdr = (struct ethhdr *) pkt;	// cast packet to ethernet header type
+	struct ethhdr *eth_hdr = (struct ethhdr *) pkt;	// cast packet to ethernet header type
 	
-	unsigned char eth_address[20];	// to store each unique Ethernet address
+	char eth_address[20];	// to store each unique Ethernet address
 	memset(eth_address, 0x00, sizeof(eth_address));	// zero-out char array initially
+	char colon[] = ":";
 	
-	cout << "========= Link layer =========" << endl << endl;
-	cout << "--------- Source ethernet addresses ---------" << endl << endl;
+	/* construct source Ethernet address */
+	for (int i = 0; i < ETH_ALEN; i++) {
+		sprintf( (eth_address + 3 * i), "%02x", *(eth_hdr->h_source + i) );	// fetch source address from ethhdr structure
+		if ( i < (ETH_ALEN - 1) )
+			memcpy( (eth_address + 2 + 3 * i), colon, 1 );	// insert colons between each octet except at the last 
+	}
+	string eth_address_src(eth_address);	// convert char array to string (use string constructor)
 
-	 display unique source as well as destination Ethernet addresses 
-	along with counts of all packets those unique Ethernet addresses occur in 
+	/* now, construct destination Ethernet address */
+	memset(eth_address, 0x00, sizeof(eth_address));	// first, flush out address holder
+	for (int i = 0; i < ETH_ALEN; i++) {
+		sprintf( (eth_address + 3 * i), "%02x", *(eth_hdr->h_dest + i) );	// fetch destination address from ethhdr structure
+		if ( i < (ETH_ALEN - 1) )
+			memcpy( (eth_address + 2 + 3 * i), colon, 1 );	// insert colons between octets	
+	}
+	string eth_address_dest(eth_address);	// destination eth addr string
 
+	/* insert source eth addr in an 'ordered' map */
+	if ( (itr = src_map.find(eth_address_src)) == src_map.end() ) {	// if src eth addr was not present in map already ...
+		src_map.insert( pair<string, int>(eth_address_src, 1) );	// insert src eth addr in map with its initial count = 1
+	} else
+		itr->second++;	// increase count of already present src eth addr
 
-	printf("[ Source: %02x", ethernet_header->ether_src_addr[0]);
-		for(i=1; i < ETHER_ADDR_LEN; i++)
-			printf(":%02x", ethernet_header->ether_src_addr[i]);
-		printf("\tDest: %02x", ethernet_header->ether_dest_addr[0]);
-		for(i=1; i < ETHER_ADDR_LEN; i++)
-			printf(":%02x", ethernet_header->ether_dest_addr[i]);
-		printf("\tType: %hu ]\n", ethernet_header->ether_type);*/
+	/* now, insert destination eth addr in its respective map like above */
+	if ( ( itr = dest_map.find(eth_address_dest) ) == dest_map.end() )
+		dest_map.insert( pair<string, int>(eth_address_dest, 1) );
+	else
+		itr->second++;
 }
+
+/*
+ * print_map() -> void
+ * 
+ */
+ void print_map(map<std::string, int> &somemap) {
+ 	map<string, int>::iterator itr;	// iterator to iterate over map
+ 	for ( itr = somemap.begin(); itr != somemap.end(); itr++)
+ 		cout << itr->first << "\t\t" << itr->second << endl;
+ }

@@ -15,7 +15,7 @@ using namespace std;
 
 int main(int argc, char *argv[]) {
 
-	ArgsParser *wt_args = NULL;	// assign to NULL to avoid "uninitialization" warning
+	PacketParser *wt_args = NULL;	// assign to NULL to avoid "uninitialization" warning
 	wt_args->parse_args(argc, argv, &wt_args);	// parse command-line arguments
 
 	char errbuf[PCAP_ERRBUF_SIZE];	// stores error text when pcap_open_offline() fails
@@ -30,7 +30,16 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "Ethernet headers not found. Program proceeding to termination.\n");
 		exit(1);
 	} else {
+
+		// first, get set to display link layer content in packet
+		cout << "========= Link layer =========" << endl << endl;
+		cout << "--------- Source ethernet addresses ---------" << endl << endl;
 		pcap_loop(pcp, -1, pcap_callback, NULL);	// loop through each packet until all packets are parsed
+		print_map(src_ethaddr_map);
+		cout << endl << endl;
+		cout << "--------- Destination ethernet addresses ---------" << endl << endl;
+		print_map(dest_ethaddr_map);
+
 		pcap_close(pcp);	// close packet capture file
 	}
 

@@ -15,3 +15,4 @@
 	** write command-line args parser class
 * read IBM's pcap_open_offline() (V)
 * write Makefile
+* OBJECTify the code more strictly e.g., can may be write class PacketParser to include functions like parse_ethernet()...
