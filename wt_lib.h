@@ -28,14 +28,14 @@ class PacketParser {
 /* pcap_loop()'s callback routine */
 void pcap_callback(u_char *, const struct pcap_pkthdr*, const u_char *);
 
-/* parse_ethernet() parses ethernet header-type content in a packet */
-void parse_ethernet(const u_char *);
+/* parse_hdrs() parses different header-types in a packet */
+void parse_hdrs(const u_char *);
 
 /* cons_ethaddr() constructs Ethernet address from an instance of ethernet header-type (struct) */
 std::string cons_ethaddr(unsigned char *);
 
 /* mapping_ethaddr() inserts every source/destination ethernet addresses in a map */
-void mapping_ethaddr(std::string, std::map<std::string, int> &);
+void mapping_elems(std::string, std::map<std::string, int> &);
 
 /* print_map() prints contents of any map passed as argument */
 void print_map(std::map<std::string, int> &);

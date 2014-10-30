@@ -16,10 +16,19 @@ using namespace std;
 #include "/usr/include/pcap/bpf.h"
 #include "/usr/include/linux/if_ether.h"
 
-/***** declare global variables ******/
+/******************** declare global variables *************************/
+
+//---------- ethernet address maps ---------------------------------------------------
 map<std::string, int> src_ethaddr_map;	// "ordered map" to store source ethernet addresses
 map<std::string, int> dst_ethaddr_map;	// "ordered map" to store destination ethernet addresses
+//-------------------------------------------------------------------------------------
 map<std::string, int>::iterator itr;	// iterator to iterate over elemnents in a map
+//-------------------------------------------------------------------------------------
+//---------- IP address maps ---------------------------------------------------
+map<std::string, int> src_ipaddr_map;	// to store source IP addresses
+map<std::string, int> dst_ipaddr_map;	// to store destination IP addresses
+
+/******************** end global variables declaration *************************/
 
 int main(int argc, char *argv[]) {
 
@@ -35,8 +44,8 @@ int main(int argc, char *argv[]) {
 		exit(1);
 	}
 
-	if (pcap_datalink(pcp) != DLT_EN10MB) {	// look for link-layer header type - Ethernet and none other
-		fprintf(stderr, "Ethernet headers not found. Program proceeding to termination.\n");
+	if (pcap_datalink(pcp) != DLT_EN10MB) {	// capture ethernet device packets and none other
+		fprintf(stderr, "Ethernet device packets not found. Program proceeding to termination.\n");
 		exit(1);
 	} else {
 
@@ -53,7 +62,11 @@ int main(int argc, char *argv[]) {
 		// now display network layer content in packet
 		cout << "\n\n" << "=============== Network layer ===============" << endl << endl;
 		cout << "------ Network layer protocols ------" << endl << endl;
-
+		cout << "------ Source IP addresses ------" << endl << endl;
+		print_map(src_ipaddr_map);
+		cout << endl;
+		cout << "------ Destination IP addresses ------" << endl << endl;
+		print_map(dst_ipaddr_map);
 
 		pcap_close(pcp);	// close packet capture file
 	}
@@ -72,18 +85,19 @@ void pcap_callback(u_char *user, const struct pcap_pkthdr* phdr, const u_char *p
 
 	u_char* pack_data;	// contents of the packet
 
-	/***** parse ethernet header-type *****/
-	parse_ethernet(packet);
+	/********* parse header types *********/
+	parse_hdrs(packet);
 
 }
 
 /*
- * parse_ethernet() -> void
- * 		parses the ethernet header-type content in the packet
+ * parse_hdrs() -> void
+ * 		parses the different header-types in the packet
  * function argument 'const u_char *pkt' is a pointer to the start of the packet header (ETH)
  */
-void parse_ethernet(const u_char *pkt) {
+void parse_hdrs(const u_char *pkt) {
 
+	//-------------------- ETH header parsing ------------------------------------------
 	struct ethhdr *eth_hdr = (struct ethhdr *) pkt;	// cast packet to ethernet header type
 	
 	/* get source Ethernet address as a string */
@@ -93,8 +107,22 @@ void parse_ethernet(const u_char *pkt) {
 	string eth_address_dst = cons_ethaddr(eth_hdr->h_dest);
 
 	/* insert source eth addr & destination eth addr in their respective "ordered map"s */
-	mapping_ethaddr(eth_address_src, src_ethaddr_map);
-	mapping_ethaddr(eth_address_dst, dst_ethaddr_map);
+	mapping_elems(eth_address_src, src_ethaddr_map);
+	mapping_elems(eth_address_dst, dst_ethaddr_map);
+	//-------------------- end ETH header parsing -------------------------------------
+
+	//-------------------- IP header parsing ------------------------------------------
+	struct iphdr *ip_hdr = (struct iphdr *) (pkt + ETH_HLEN);
+	
+	if (ip_hdr->version) {	// only account for IPv4 addresses
+		string src_ipaddr( inet_ntoa( *(struct in_addr *) &ip_hdr->saddr ) );	// convert u_int32_t to dotted IP addr string
+		mapping_elems(src_ipaddr, src_ipaddr_map);	// have a unique count of src IP addr in a map
+	}
+
+/*	string dst_ipaddr( inet_ntoa( *(struct in_addr *) &ip_hdr->daddr) );	// destination IP addr like done for src IP addr
+	mapping_elems(dst_ipaddr, dst_ipaddr_map);*/
+	//-------------------- end IP header parsing ------------------------------------------
+
 
 }
 
@@ -121,9 +149,9 @@ string cons_ethaddr(unsigned char *h_addr) {
  * mapping_ethaddr() -> void
  * 	inserts every source/destination ethernet addresses in a map
  */
-void mapping_ethaddr(string eaddr, map<string, int> &emap) {
-	if ( (itr = emap.find(eaddr)) == emap.end() )	// src eth addr is not already present in map
-		emap.insert( pair<string, int>(eaddr, 1) );	// insert new src eth addr & set its count to 1 initially
+void mapping_elems(string elem, map<string, int> &hmap) {
+	if ( (itr = hmap.find(elem)) == hmap.end() )	// src eth addr is not already present in map
+		hmap.insert( pair<string, int>(elem, 1) );	// insert new src eth addr & set its count to 1 initially
 	else	// if src eth addr already present in map
 		itr->second++;	// increase its count
 }
