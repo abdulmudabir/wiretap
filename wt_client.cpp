@@ -27,7 +27,7 @@ map<std::string, int>::iterator itr;	// iterator to iterate over elemnents in a 
 //---------- IP address maps ---------------------------------------------------
 map<std::string, int> src_ipaddr_map;	// to store source IP addresses
 map<std::string, int> dst_ipaddr_map;	// to store destination IP addresses
-
+//-------------------------------------------------------------------------------------
 /******************** end global variables declaration *************************/
 
 int main(int argc, char *argv[]) {
@@ -60,13 +60,14 @@ int main(int argc, char *argv[]) {
 		print_map(dst_ethaddr_map);
 
 		// now display network layer content in packet
-		cout << "\n\n" << "=============== Network layer ===============" << endl << endl;
+		cout << "\n" << "=============== Network layer ===============" << endl << endl;
 		cout << "------ Network layer protocols ------" << endl << endl;
 		cout << "------ Source IP addresses ------" << endl << endl;
 		print_map(src_ipaddr_map);
 		cout << endl;
 		cout << "------ Destination IP addresses ------" << endl << endl;
 		print_map(dst_ipaddr_map);
+		cout << endl;
 
 		pcap_close(pcp);	// close packet capture file
 	}
@@ -98,35 +99,31 @@ void pcap_callback(u_char *user, const struct pcap_pkthdr* phdr, const u_char *p
 void parse_hdrs(const u_char *pkt) {
 
 	//-------------------- ETH header parsing ------------------------------------------
+
 	struct ethhdr *eth_hdr = (struct ethhdr *) pkt;	// cast packet to ethernet header type
 	
 	/* get source Ethernet address as a string */
-	if (ntohs(eth_hdr->h_proto) == ETH_P_IP) {	// only account for IPv4 packets
-	    /* get source Ethernet address as a string */
-	    string eth_address_src = cons_ethaddr(eth_hdr->h_source);
-	}
-	
-
+	string eth_address_src = cons_ethaddr(eth_hdr->h_source);
 	/* now, get destination Ethernet address as a string */
 	string eth_address_dst = cons_ethaddr(eth_hdr->h_dest);
-
 	/* insert source eth addr & destination eth addr in their respective "ordered map"s */
 	mapping_elems(eth_address_src, src_ethaddr_map);
 	mapping_elems(eth_address_dst, dst_ethaddr_map);
+		
 	//-------------------- end ETH header parsing -------------------------------------
 
 	//-------------------- IP header parsing ------------------------------------------
-	struct iphdr *ip_hdr = (struct iphdr *) (pkt + ETH_HLEN);
-	
-	if (ip_hdr->version) {	// only account for IPv4 addresses
+
+	struct iphdr *ip_hdr = (struct iphdr *) (pkt + ETH_HLEN);	// get a pointer to IP header type
+
+	if (ntohs(eth_hdr->h_proto) == ETH_P_IP) {	// only account for IPv4 packets {
 		string src_ipaddr( inet_ntoa( *(struct in_addr *) &ip_hdr->saddr ) );	// convert u_int32_t to dotted IP addr string
 		mapping_elems(src_ipaddr, src_ipaddr_map);	// have a unique count of src IP addr in a map
+		string dst_ipaddr( inet_ntoa( *(struct in_addr *) &ip_hdr->daddr) );	// destination IP addr like done for src IP addr
+		mapping_elems(dst_ipaddr, dst_ipaddr_map);
 	}
-
-/*	string dst_ipaddr( inet_ntoa( *(struct in_addr *) &ip_hdr->daddr) );	// destination IP addr like done for src IP addr
-	mapping_elems(dst_ipaddr, dst_ipaddr_map);*/
+		
 	//-------------------- end IP header parsing ------------------------------------------
-
 
 }
 
