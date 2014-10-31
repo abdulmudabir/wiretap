@@ -101,8 +101,11 @@ void parse_hdrs(const u_char *pkt) {
 	struct ethhdr *eth_hdr = (struct ethhdr *) pkt;	// cast packet to ethernet header type
 	
 	/* get source Ethernet address as a string */
-	/********* MOST PROBABLY NEED IPv4 CHECK HERE (if (eth_hdr->h_proto...)) *****************/
-	string eth_address_src = cons_ethaddr(eth_hdr->h_source);
+	if (ntohs(eth_hdr->h_proto) == ETH_P_IP) {	// only account for IPv4 packets
+	    /* get source Ethernet address as a string */
+	    string eth_address_src = cons_ethaddr(eth_hdr->h_source);
+	}
+	
 
 	/* now, get destination Ethernet address as a string */
 	string eth_address_dst = cons_ethaddr(eth_hdr->h_dest);
