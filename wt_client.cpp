@@ -116,11 +116,13 @@ void parse_hdrs(const u_char *pkt) {
 
 	struct iphdr *ip_hdr = (struct iphdr *) (pkt + ETH_HLEN);	// get a pointer to IP header type
 
-	if (ntohs(eth_hdr->h_proto) == ETH_P_IP) {	// only account for IPv4 packets {
+	if (ntohs(eth_hdr->h_proto) == ETH_P_IP) {	// only account for IPv4 packets
 		string src_ipaddr( inet_ntoa( *(struct in_addr *) &ip_hdr->saddr ) );	// convert u_int32_t to dotted IP addr string
 		mapping_elems(src_ipaddr, src_ipaddr_map);	// have a unique count of src IP addr in a map
 		string dst_ipaddr( inet_ntoa( *(struct in_addr *) &ip_hdr->daddr) );	// destination IP addr like done for src IP addr
 		mapping_elems(dst_ipaddr, dst_ipaddr_map);
+	} else if (ntohs(eth_hdr->h_proto) == ETH_P_ARP) { 	// parsing ARP packets
+		/************** NEED TO CHECK if_arp.h to get clues *******************/
 	}
 		
 	//-------------------- end IP header parsing ------------------------------------------
