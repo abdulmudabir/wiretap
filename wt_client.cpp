@@ -23,11 +23,23 @@ map<std::string, int> src_ethaddr_map;	// "ordered map" to store source ethernet
 map<std::string, int> dst_ethaddr_map;	// "ordered map" to store destination ethernet addresses
 //-------------------------------------------------------------------------------------
 map<std::string, int>::iterator itr;	// iterator to iterate over elemnents in a map
-//-------------------------------------------------------------------------------------
 //---------- IP address maps ---------------------------------------------------
 map<std::string, int> src_ipaddr_map;	// to store source IP addresses
 map<std::string, int> dst_ipaddr_map;	// to store destination IP addresses
-//-------------------------------------------------------------------------------------
+//-----------ARP header --------------------------------------------------------------
+struct arp_hdr_t {
+	unsigned short int ar_hrd;		/* Format of hardware address.  */
+    unsigned short int ar_pro;		/* Format of protocol address.  */
+    unsigned char ar_hln;		/* Length of hardware address.  */
+    unsigned char ar_pln;		/* Length of protocol address.  */
+    unsigned short int ar_op;		/* ARP opcode (command).  */
+	unsigned char __ar_sha[ETH_ALEN];	/* Sender hardware address.  */
+    unsigned char __ar_sip[4];		/* Sender IP address.  */
+    unsigned char __ar_tha[ETH_ALEN];	/* Target hardware address.  */
+    unsigned char __ar_tip[4];		/* Target IP address.  */
+};
+
+map<std::string, int> arp_sha_map;
 /******************** end global variables declaration *************************/
 
 int main(int argc, char *argv[]) {
@@ -68,6 +80,8 @@ int main(int argc, char *argv[]) {
 		cout << "------ Destination IP addresses ------" << endl << endl;
 		print_map(dst_ipaddr_map);
 		cout << endl;
+		cout << "------ Unique ARP participants ------" << endl << endl;
+		print_map(arp_sha_map);
 
 		pcap_close(pcp);	// close packet capture file
 	}
@@ -103,9 +117,9 @@ void parse_hdrs(const u_char *pkt) {
 	struct ethhdr *eth_hdr = (struct ethhdr *) pkt;	// cast packet to ethernet header type
 	
 	/* get source Ethernet address as a string */
-	string eth_address_src = cons_ethaddr(eth_hdr->h_source);
+	string eth_address_src = cons_macaddr(eth_hdr->h_source);
 	/* now, get destination Ethernet address as a string */
-	string eth_address_dst = cons_ethaddr(eth_hdr->h_dest);
+	string eth_address_dst = cons_macaddr(eth_hdr->h_dest);
 	/* insert source eth addr & destination eth addr in their respective "ordered map"s */
 	mapping_elems(eth_address_src, src_ethaddr_map);
 	mapping_elems(eth_address_dst, dst_ethaddr_map);
@@ -115,6 +129,7 @@ void parse_hdrs(const u_char *pkt) {
 	//-------------------- IP header parsing ------------------------------------------
 
 	struct iphdr *ip_hdr = (struct iphdr *) (pkt + ETH_HLEN);	// get a pointer to IP header type
+	arp_hdr_t *arp_hdr = (struct arp_hdr_t *) (pkt + ETH_HLEN);	// cast iphdr to arp header type
 
 	if (ntohs(eth_hdr->h_proto) == ETH_P_IP) {	// only account for IPv4 packets
 		string src_ipaddr( inet_ntoa( *(struct in_addr *) &ip_hdr->saddr ) );	// convert u_int32_t to dotted IP addr string
@@ -122,7 +137,13 @@ void parse_hdrs(const u_char *pkt) {
 		string dst_ipaddr( inet_ntoa( *(struct in_addr *) &ip_hdr->daddr) );	// destination IP addr like done for src IP addr
 		mapping_elems(dst_ipaddr, dst_ipaddr_map);
 	} else if (ntohs(eth_hdr->h_proto) == ETH_P_ARP) { 	// parsing ARP packets
-		/************** NEED TO CHECK if_arp.h to get clues *******************/
+		char ip_buf[20];
+		snprintf( ip_buf, 20, "%d.%d.%d.%d", arp_hdr->__ar_sip[0], arp_hdr->__ar_sip[1], arp_hdr->__ar_sip[2], arp_hdr->__ar_sip[3]);
+		cout << "testing, ip_buf: " << ip_buf << endl;
+		/*for (int i = 0; i < 4; i++) {
+			ip_buf[] = ntohs(arp_hdr->__ar_sip));
+			
+		}*/
 	}
 		
 	//-------------------- end IP header parsing ------------------------------------------
@@ -130,22 +151,22 @@ void parse_hdrs(const u_char *pkt) {
 }
 
 /*
- * cons_ethaddr() -> string
- * constructs Ethernet address from an instance of ethernet header-type (struct)
+ * cons_macaddr() -> string
+ * constructs standard form of a hardware address
  */
-string cons_ethaddr(unsigned char *h_addr) {
-	char eth_address[20];	// to store ethernet address
-	memset(eth_address, 0x00, sizeof(eth_address));	// zero-out char array initially
+string cons_macaddr(unsigned char *h_addr) {
+	char buf_address[20];	// buffer to store address
+	memset(buf_address, 0x00, sizeof(buf_address));	// zero-out char array initially
 	char colon[] = ":";	// to insert colon between octets in an ethernet address
 
 	for (int i = 0; i < ETH_ALEN; i++) {
-		sprintf( (eth_address + 3 * i), "%02x", *(h_addr + i) );	// fetch destination address from ethhdr structure
+		sprintf( (buf_address + 3 * i), "%02x", *(h_addr + i) );	// convert address to a hex form
 		if ( i < (ETH_ALEN - 1) )
-			memcpy( (eth_address + 2 + 3 * i), colon, 1 );	// insert colons between octets			
+			memcpy( (buf_address + 2 + i * 3), colon, 1 );	// insert colons between octets
 	}
-	string eth_address_str(eth_address);	// convert char array to string (use string constructor)
+	string hrd_address_str(buf_address);	// convert char array to string (use string constructor)
 
-	return eth_address_str;	// return construct ethernet address
+	return hrd_address_str;	// return constructed hardware address
 }
 
 /* 

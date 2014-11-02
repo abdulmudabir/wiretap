@@ -32,7 +32,7 @@ void pcap_callback(u_char *, const struct pcap_pkthdr*, const u_char *);
 void parse_hdrs(const u_char *);
 
 /* cons_ethaddr() constructs Ethernet address from an instance of ethernet header-type (struct) */
-std::string cons_ethaddr(unsigned char *);
+std::string cons_macaddr(unsigned char *);
 
 /* mapping_ethaddr() inserts every source/destination ethernet addresses in a map */
 void mapping_elems(std::string, std::map<std::string, int> &);
