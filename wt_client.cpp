@@ -1,4 +1,9 @@
 
+/*
+ * References:
+ 	http://www.binarytides.com/code-packet-sniffer-c-winpcap/
+ */
+
 // standard libraries
 #include <iostream>
 #include <cstdlib>
@@ -11,7 +16,6 @@ using namespace std;
 // include all packet capture helper libraries
 #include "/usr/include/netinet/ip.h"
 #include "/usr/include/netinet/udp.h"
-#include "/usr/include/net/if_arp.h"
 #include "/usr/include/arpa/inet.h"
 #include "/usr/include/pcap/bpf.h"
 #include "/usr/include/linux/if_ether.h"
@@ -27,7 +31,7 @@ map<std::string, int>::iterator itr;	// iterator to iterate over elemnents in a 
 map<std::string, int> src_ipaddr_map;	// to store source IP addresses
 map<std::string, int> dst_ipaddr_map;	// to store destination IP addresses
 //-----------ARP header --------------------------------------------------------------
-struct arp_hdr_t {
+typedef struct {
 	unsigned short int ar_hrd;		/* Format of hardware address.  */
     unsigned short int ar_pro;		/* Format of protocol address.  */
     unsigned char ar_hln;		/* Length of hardware address.  */
@@ -37,9 +41,29 @@ struct arp_hdr_t {
     unsigned char __ar_sip[4];		/* Sender IP address.  */
     unsigned char __ar_tha[ETH_ALEN];	/* Target hardware address.  */
     unsigned char __ar_tip[4];		/* Target IP address.  */
-};
+}arp_hdr_t;
 
 map<std::string, int> arp_map;	// to hold ARP packet info
+//-----------TCP header --------------------------------------------------------------
+typedef struct {
+	u_int16_t th_sport;		/* source port */
+    u_int16_t th_dport;		/* destination port */
+    u_int32_t th_seq;		/* sequence number */
+    u_int32_t th_ack;		/* acknowledgement number */
+	u_int8_t th_flags;
+	#define TH_FIN	0x01
+	#define TH_SYN	0x02
+	#define TH_RST	0x04
+	#define TH_PUSH	0x08
+		#define TH_ACK	0x10
+	#define TH_URG	0x20
+
+    u_int16_t th_win;		/* window */
+    u_int16_t th_sum;		/* checksum */
+    u_int16_t th_urp;		/* urgent pointer */
+}tcphdr_t;
+
+map<std::string, int> tcp_sportmap;	// to hold tcp source ports
 /******************** end global variables declaration *************************/
 
 int main(int argc, char *argv[]) {
@@ -83,6 +107,13 @@ int main(int argc, char *argv[]) {
 		cout << "------ Unique ARP participants ------" << endl << endl;
 		print_map(arp_map);
 		cout << endl;
+		cout << "\n" << "=============== Transport layer ===============" << endl << endl;
+		cout << "------ Transport layer protocols ------" << endl << endl;
+		cout << "------ Transport layer: TCP ------" << endl << endl;
+		cout << "------ Source TCP ports ------" << endl << endl;
+		print_map(tcp_sportmap);
+		cout << "------ Destination TCP ports ------" << endl << endl;
+		cout << "------ TCP flags ------" << endl << endl;
 
 		pcap_close(pcp);	// close packet capture file
 	}
@@ -95,10 +126,6 @@ int main(int argc, char *argv[]) {
 
 void pcap_callback(u_char *user, const struct pcap_pkthdr* phdr, const u_char *packet) {
 	
-	int pkt_length;	// length of the packet
-	int tcp_header_len;	// length of tcp header
-	int total_header_len;	// total length of accounting all headers
-
 	u_char* pack_data;	// contents of the packet
 
 	/********* parse header types *********/
@@ -113,14 +140,22 @@ void pcap_callback(u_char *user, const struct pcap_pkthdr* phdr, const u_char *p
  */
 void parse_hdrs(const u_char *pkt) {
 
+	char buf[40];	// char array buffer to hold strings
+	memset(buf, 0x00, sizeof(buf));	// zero-out buffer initially
+
 	//-------------------- ETH header parsing ------------------------------------------
 
 	struct ethhdr *eth_hdr = (struct ethhdr *) pkt;	// cast packet to ethernet header type
 	
 	/* get source Ethernet address as a string */
-	string eth_address_src = cons_macaddr(eth_hdr->h_source);
+	snprintf(buf, 40, "%02x:%02x:%02x:%02x:%02x:%02x", eth_hdr->h_source[0], eth_hdr->h_source[1], eth_hdr->h_source[2], eth_hdr->h_source[3], eth_hdr->h_source[4], eth_hdr->h_source[5]);
+	string eth_address_src(buf);	// convert char array to string
+
 	/* now, get destination Ethernet address as a string */
-	string eth_address_dst = cons_macaddr(eth_hdr->h_dest);
+	memset(buf, 0x00, sizeof(buf));	// flush-out buffer for reuse
+	snprintf(buf, 40, "%02x:%02x:%02x:%02x:%02x:%02x", eth_hdr->h_dest[0], eth_hdr->h_dest[1], eth_hdr->h_dest[2], eth_hdr->h_dest[3], eth_hdr->h_dest[4], eth_hdr->h_dest[5]);
+	string eth_address_dst(buf);
+
 	/* insert source eth addr & destination eth addr in their respective "ordered map"s */
 	mapping_elems(eth_address_src, src_ethaddr_map);
 	mapping_elems(eth_address_dst, dst_ethaddr_map);
@@ -130,7 +165,7 @@ void parse_hdrs(const u_char *pkt) {
 	//-------------------- IP header parsing ------------------------------------------
 
 	struct iphdr *ip_hdr = (struct iphdr *) (pkt + ETH_HLEN);	// get a pointer to IP header type
-	arp_hdr_t *arp_hdr = (struct arp_hdr_t *) (pkt + ETH_HLEN);	// cast iphdr to arp header type
+	arp_hdr_t *arp_hdr = (arp_hdr_t *) ip_hdr;	// cast iphdr to arp header type
 
 	if (ntohs(eth_hdr->h_proto) == ETH_P_IP) {	// only account for IPv4 packets
 		string src_ipaddr( inet_ntoa( *(struct in_addr *) &ip_hdr->saddr ) );	// convert u_int32_t to dotted IP addr string
@@ -139,8 +174,7 @@ void parse_hdrs(const u_char *pkt) {
 		mapping_elems(dst_ipaddr, dst_ipaddr_map);
 	} else if (ntohs(eth_hdr->h_proto) == ETH_P_ARP) { 	//----------------- ARP packet parsing -------------------------
 
-		char buf[40];	// char array to hold hardware address
-		memset(buf, 0x00, sizeof(buf));	// zero-out buffer initially
+		memset(buf, 0x00, sizeof(buf));	// flush-out buffer
 		snprintf(buf, 40, "%02x:%02x:%02x:%02x:%02x:%02x", arp_hdr->__ar_sha[0], arp_hdr->__ar_sha[1], arp_hdr->__ar_sha[2], arp_hdr->__ar_sha[3], arp_hdr->__ar_sha[4], arp_hdr->__ar_sha[5]);	// each octet byte written in hex
 		string sha(buf);	// char array to string
 
@@ -155,28 +189,21 @@ void parse_hdrs(const u_char *pkt) {
 		//-------------------------------- end ARP parsing -------------------------------------------------------------
 
 	}
-		
 	//-------------------- end IP header parsing ------------------------------------------
 
-}
+	//-------------------- TCP header parsing ---------------------------------------------
 
-/*
- * cons_macaddr() -> string
- * constructs standard form of a hardware address
- */
-string cons_macaddr(unsigned char *h_addr) {
-	char buf_address[20];	// buffer to store address
-	memset(buf_address, 0x00, sizeof(buf_address));	// zero-out char array initially
-	char colon[] = ":";	// to insert colon between octets in an ethernet address
+	tcphdr_t *tcp_hdr = (tcphdr_t *) (pkt + ETH_HLEN + sizeof(ip_hdr));	// get pointer to TCP header in packet
+	
+	// parse differently for different protocols
 
-	for (int i = 0; i < ETH_ALEN; i++) {
-		sprintf( (buf_address + 3 * i), "%02x", *(h_addr + i) );	// convert address to a hex form
-		if ( i < (ETH_ALEN - 1) )
-			memcpy( (buf_address + 2 + i * 3), colon, 1 );	// insert colons between octets
-	}
-	string hrd_address_str(buf_address);	// convert char array to string (use string constructor)
+	memset(buf, 0x00, sizeof(buf));
+	snprintf(buf, 40, "%d", tcp_hdr->th_sport);
+	string sport_str(buf);
+	mapping_elems(sport_str, tcp_sportmap);
 
-	return hrd_address_str;	// return constructed hardware address
+	//-------------------- end TCP header parsing -----------------------------------------
+
 }
 
 /* 
