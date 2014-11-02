@@ -15,6 +15,7 @@ using namespace std;
 
 // include all packet capture helper libraries
 #include "/usr/include/netinet/ip.h"
+#include "/usr/include/netinet/tcp.h"
 #include "/usr/include/netinet/udp.h"
 #include "/usr/include/arpa/inet.h"
 #include "/usr/include/pcap/bpf.h"
@@ -41,29 +42,20 @@ typedef struct {
     unsigned char __ar_sip[4];		/* Sender IP address.  */
     unsigned char __ar_tha[ETH_ALEN];	/* Target hardware address.  */
     unsigned char __ar_tip[4];		/* Target IP address.  */
-}arp_hdr_t;
+} arp_hdr_t;
 
 map<std::string, int> arp_map;	// to hold ARP packet info
 //-----------TCP header --------------------------------------------------------------
-typedef struct {
-	u_int16_t th_sport;		/* source port */
-    u_int16_t th_dport;		/* destination port */
-    u_int32_t th_seq;		/* sequence number */
-    u_int32_t th_ack;		/* acknowledgement number */
-	u_int8_t th_flags;
-	#define TH_FIN	0x01
-	#define TH_SYN	0x02
-	#define TH_RST	0x04
-	#define TH_PUSH	0x08
-		#define TH_ACK	0x10
-	#define TH_URG	0x20
-
-    u_int16_t th_win;		/* window */
-    u_int16_t th_sum;		/* checksum */
-    u_int16_t th_urp;		/* urgent pointer */
-}tcphdr_t;
 
 map<std::string, int> tcp_sportmap;	// to hold tcp source ports
+map<std::string, int> tcp_dportmap;	// to hold tcp destination ports
+
+map<std::string, int> tcp_flagsmap;	// to store tcp flags (ACK, FIN, etc.) counts
+
+/* for UDP */
+map<std::string, int> udp_sportmap;	// to hold udp source ports
+map<std::string, int> udp_dportmap;	// to hold udp destination ports
+
 /******************** end global variables declaration *************************/
 
 int main(int argc, char *argv[]) {
@@ -112,8 +104,21 @@ int main(int argc, char *argv[]) {
 		cout << "------ Transport layer: TCP ------" << endl << endl;
 		cout << "------ Source TCP ports ------" << endl << endl;
 		print_map(tcp_sportmap);
+		cout << endl;
 		cout << "------ Destination TCP ports ------" << endl << endl;
+		print_map(tcp_dportmap);
+		cout << endl;
 		cout << "------ TCP flags ------" << endl << endl;
+		print_map(tcp_flagsmap);
+		cout << endl;
+		cout << "------ TCP options ------" << endl << endl;
+		cout << "------ Transport layer: UDP ------" << endl << endl;
+		cout << "------ Source UDP ports ------" << endl << endl;
+		print_map(udp_sportmap);
+		cout << endl;
+		cout << "------ Destination UDP ports ------" << endl << endl;
+		print_map(udp_dportmap);
+		cout << endl;
 
 		pcap_close(pcp);	// close packet capture file
 	}
@@ -193,14 +198,53 @@ void parse_hdrs(const u_char *pkt) {
 
 	//-------------------- TCP header parsing ---------------------------------------------
 
-	tcphdr_t *tcp_hdr = (tcphdr_t *) (pkt + ETH_HLEN + sizeof(ip_hdr));	// get pointer to TCP header in packet
-	
-	// parse differently for different protocols
+	struct tcphdr *tcp_hdr = (struct tcphdr *) (pkt + ETH_HLEN + sizeof(struct iphdr));	// get pointer to TCP header in packet
+	struct udphdr *udp_hdr = (struct udphdr *) tcp_hdr;
 
-	memset(buf, 0x00, sizeof(buf));
-	snprintf(buf, 40, "%d", tcp_hdr->th_sport);
-	string sport_str(buf);
-	mapping_elems(sport_str, tcp_sportmap);
+	// parse differently for different protocols
+	switch(ip_hdr->protocol) {
+		case IPPROTO_TCP:	// TCP type
+			memset(buf, 0x00, sizeof(buf));
+			snprintf(buf, 40, "%d", ntohs(tcp_hdr->source));	// grab TCP source port
+			mapping_elems(buf, tcp_sportmap);
+			memset(buf, 0x00, sizeof(buf));
+			snprintf(buf, 40, "%d", ntohs(tcp_hdr->dest));	// grab TCP destination port similarly
+			mapping_elems(buf, tcp_dportmap);
+			break;
+		case IPPROTO_UDP:	// UDP type
+			memset(buf, 0x00, sizeof(buf));
+			snprintf(buf, 40, "%d", ntohs(udp_hdr->source));	// grab TCP source port
+			mapping_elems(buf, udp_sportmap);	// insert into map
+			memset(buf, 0x00, sizeof(buf));
+			snprintf(buf, 40, "%d", ntohs(udp_hdr->dest));	// grab TCP source port
+			mapping_elems(buf, udp_dportmap);	// insert into map
+			break;
+		case IPPROTO_ICMP:
+			break;
+		default:
+			break;
+	}
+
+	// get TCP flags info
+	if (tcp_hdr->ack) {	// if the "ACK" flag is set
+		string ack_str("ACK");	// construct string to be placed as 'key' in map
+		mapping_elems(ack_str, tcp_flagsmap);	// insert flag type in map
+	} else if (tcp_hdr->fin) {	// if "FIN" flag is set
+		string fin_str("FIN");
+		mapping_elems(fin_str, tcp_flagsmap);
+	} else if (tcp_hdr->psh) {	// if "PSH" flag is set
+		string fin_str("PSH");
+		mapping_elems(fin_str, tcp_flagsmap);
+	} else if (tcp_hdr->rst) {	// if "RST" flag is set
+		string rst_str("RST");
+		mapping_elems(rst_str, tcp_flagsmap);
+	} else if (tcp_hdr->syn) {	// if "SYN" flag is set
+		string syn_str("SYN");
+		mapping_elems(syn_str, tcp_flagsmap);
+	} else if (tcp_hdr->urg) {	// if "URG" flag is set
+		string urg_str("URG");
+		mapping_elems(urg_str, tcp_flagsmap);
+	}
 
 	//-------------------- end TCP header parsing -----------------------------------------
 
@@ -215,6 +259,15 @@ void mapping_elems(string elem, map<string, int> &hmap) {
 		hmap.insert( pair<string, int>(elem, 1) );	// insert new src eth addr & set its count to 1 initially
 	else	// if src eth addr already present in map
 		itr->second++;	// increase its count
+}
+
+/*
+ * overloaded mapping elems function;
+ * needed have this to avoid the "jump to case label crosses initilialization error"
+ */
+void mapping_elems(char * buffer, map<string, int> &anymap) {
+	string str(buffer);	// convert to string
+	mapping_elems(str, anymap);	// insert into map
 }
 
 /*

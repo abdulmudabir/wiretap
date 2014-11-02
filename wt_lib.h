@@ -34,6 +34,9 @@ void parse_hdrs(const u_char *);
 /* mapping_ethaddr() inserts every source/destination ethernet addresses in a map */
 void mapping_elems(std::string, std::map<std::string, int> &);
 
+/* overloaded mapping elems function */
+void mapping_elems(char *, std::map<std::string, int> &);
+
 /* print_map() prints contents of any map passed as argument */
 void print_map(std::map<std::string, int> &);
 
