@@ -17,6 +17,7 @@ using namespace std;
 #include "/usr/include/netinet/ip.h"
 #include "/usr/include/netinet/tcp.h"
 #include "/usr/include/netinet/udp.h"
+#include "/usr/include/netinet/ip_icmp.h"
 #include "/usr/include/arpa/inet.h"
 #include "/usr/include/pcap/bpf.h"
 #include "/usr/include/linux/if_ether.h"
@@ -56,6 +57,9 @@ map<std::string, int> tcp_flagsmap;	// to store tcp flags (ACK, FIN, etc.) count
 map<std::string, int> udp_sportmap;	// to hold udp source ports
 map<std::string, int> udp_dportmap;	// to hold udp destination ports
 
+/* for ICMP */
+map<std::string, int> icmp_typemap;	// to hold ICMP types if any
+map<std::string, int> icmp_codemap;	// to hold ICMP codes if any
 /******************** end global variables declaration *************************/
 
 int main(int argc, char *argv[]) {
@@ -103,6 +107,8 @@ int main(int argc, char *argv[]) {
 		cout << endl;
 		cout << "\n" << "=============== Transport layer ===============" << endl << endl;
 		cout << "------ Transport layer protocols ------" << endl << endl;
+		itr = icmp_typemap.begin();
+		cout << "ICMP" << "\t\t" << itr->second << endl << endl;
 		cout << "------ Transport layer: TCP ------" << endl << endl;
 		cout << "------ Source TCP ports ------" << endl << endl;
 		print_map(tcp_sportmap);
@@ -121,6 +127,14 @@ int main(int argc, char *argv[]) {
 		cout << "------ Destination UDP ports ------" << endl << endl;
 		print_map(udp_dportmap);
 		cout << endl;
+		cout << "------ Transport layer: ICMP ------" << endl << endl;
+		cout << "------ ICMP types ------" << endl << endl;
+		print_map(icmp_typemap);
+		cout << endl;
+		cout << "------ ICMP codes ------" << endl << endl;
+		print_map(icmp_codemap);
+		cout << endl;
+		cout << setfill('*') << setw(80) << "\n\n";
 
 		pcap_close(pcp);	// close packet capture file
 	}
@@ -131,10 +145,14 @@ int main(int argc, char *argv[]) {
 	return 0;
 }
 
+/*
+ * this function is the callback routine referenced in pcap_loop();
+ * the function loops through each packet's content to scan out relevant information.
+ *
+ * pcap_callback() -> void
+ */
 void pcap_callback(u_char *user, const struct pcap_pkthdr* phdr, const u_char *packet) {
 	
-	u_char* pack_data;	// contents of the packet
-
 	/********* parse header types *********/
 	parse_hdrs(packet);
 
@@ -169,8 +187,6 @@ void parse_hdrs(const u_char *pkt) {
 		
 	//-------------------- end ETH header parsing -------------------------------------
 
-	//-------------------- IP header parsing ------------------------------------------
-
 	struct iphdr *ip_hdr = (struct iphdr *) (pkt + ETH_HLEN);	// get a pointer to IP header type
 	arp_hdr_t *arp_hdr = (arp_hdr_t *) ip_hdr;	// cast iphdr to arp header type
 
@@ -179,6 +195,67 @@ void parse_hdrs(const u_char *pkt) {
 		mapping_elems(src_ipaddr, src_ipaddr_map);	// have a unique count of src IP addr in a map
 		string dst_ipaddr( inet_ntoa( *(struct in_addr *) &ip_hdr->daddr) );	// destination IP addr like done for src IP addr
 		mapping_elems(dst_ipaddr, dst_ipaddr_map);
+
+		struct tcphdr *tcp_hdr = (struct tcphdr *) (pkt + ETH_HLEN + sizeof(struct iphdr));	// get pointer to TCP header in packet
+		struct udphdr *udp_hdr = (struct udphdr *) tcp_hdr;	// cast to UDP type
+		struct icmphdr *icmp_hdr = (struct icmphdr *) tcp_hdr;	// cast to ICMP type
+
+		// parse differently for different protocols
+		switch(ip_hdr->protocol) {
+			// case 2:
+
+			case IPPROTO_TCP:	// TCP type
+				memset(buf, 0x00, sizeof(buf));
+				snprintf(buf, 40, "%u", ntohs(tcp_hdr->source));	// grab TCP source port
+				mapping_elems(buf, tcp_sportmap);
+				memset(buf, 0x00, sizeof(buf));
+				snprintf(buf, 40, "%u", ntohs(tcp_hdr->dest));	// grab TCP destination port similarly
+				mapping_elems(buf, tcp_dportmap);
+
+				//----------------- get TCP flags info ---------------------------------
+				if (tcp_hdr->ack) {	// if the "ACK" flag is set
+					if ( (itr = tcp_flagsmap.find("ACK")) != tcp_flagsmap.end() )
+						itr->second++;
+				} else if (tcp_hdr->fin) {	// if "FIN" flag is set
+					if ( (itr = tcp_flagsmap.find("FIN")) != tcp_flagsmap.end() )
+						itr->second++;
+				} else if (tcp_hdr->psh) {	// if "PSH" flag is set
+					if ( (itr = tcp_flagsmap.find("PSH")) != tcp_flagsmap.end() )
+						itr->second++;
+				} else if (tcp_hdr->rst) {	// if "RST" flag is set
+					if ( (itr = tcp_flagsmap.find("RST")) != tcp_flagsmap.end() )
+					itr->second++;
+				} else if (tcp_hdr->syn) {	// if "SYN" flag is set
+					if ( (itr = tcp_flagsmap.find("SYN")) != tcp_flagsmap.end() )
+					itr->second++;
+				} else if (tcp_hdr->urg) {	// if "URG" flag is set
+					if ( (itr = tcp_flagsmap.find("URG")) != tcp_flagsmap.end() )
+					itr->second++;
+				} //----------------- end TCP flags info ---------------------------------
+			break;
+			
+			case IPPROTO_UDP:	// UDP type
+				memset(buf, 0x00, sizeof(buf));
+				snprintf(buf, 40, "%hu", ntohs(udp_hdr->source));	// grab TCP source port
+				mapping_elems(buf, udp_sportmap);	// insert into map
+				memset(buf, 0x00, sizeof(buf));
+				snprintf(buf, 40, "%hu", ntohs(udp_hdr->dest));	// grab TCP source port
+				mapping_elems(buf, udp_dportmap);	// insert into map
+				break;
+			
+			case IPPROTO_ICMP:	// ICMP type
+				memset(buf, 0x00, sizeof(buf));
+				snprintf(buf, 40, "%d", icmp_hdr->type);	// convert 8-bit unsigned int to 32-bit int
+				mapping_elems(buf, icmp_typemap);	// insert into its respecive map
+				memset(buf, 0x00, sizeof(buf));
+				snprintf(buf, 40, "%d", icmp_hdr->code);	// convert 8-bit unsigned int to 32-bit int
+				mapping_elems(buf, icmp_codemap);	// insert into its respecive map
+				break;
+
+			default:
+				break;
+		}
+
 	} else if (ntohs(eth_hdr->h_proto) == ETH_P_ARP) { 	//----------------- ARP packet parsing -------------------------
 
 		memset(buf, 0x00, sizeof(buf));	// flush-out buffer
@@ -196,59 +273,6 @@ void parse_hdrs(const u_char *pkt) {
 		//-------------------------------- end ARP parsing -------------------------------------------------------------
 
 	}
-	//-------------------- end IP header parsing ------------------------------------------
-
-	//-------------------- TCP header parsing ---------------------------------------------
-
-	struct tcphdr *tcp_hdr = (struct tcphdr *) (pkt + ETH_HLEN + sizeof(struct iphdr));	// get pointer to TCP header in packet
-	struct udphdr *udp_hdr = (struct udphdr *) tcp_hdr;
-
-	// parse differently for different protocols
-	switch(ip_hdr->protocol) {
-		case IPPROTO_TCP:	// TCP type
-			memset(buf, 0x00, sizeof(buf));
-			snprintf(buf, 40, "%u", ntohs(tcp_hdr->source));	// grab TCP source port
-			mapping_elems(buf, tcp_sportmap);
-			memset(buf, 0x00, sizeof(buf));
-			snprintf(buf, 40, "%u", ntohs(tcp_hdr->dest));	// grab TCP destination port similarly
-			mapping_elems(buf, tcp_dportmap);
-
-			//----------------- get TCP flags info ---------------------------------
-			if (tcp_hdr->ack) {	// if the "ACK" flag is set
-				if ( (itr = tcp_flagsmap.find("ACK")) != tcp_flagsmap.end() )
-					itr->second++;
-			} else if (tcp_hdr->fin) {	// if "FIN" flag is set
-				if ( (itr = tcp_flagsmap.find("FIN")) != tcp_flagsmap.end() )
-					itr->second++;
-			} else if (tcp_hdr->psh) {	// if "PSH" flag is set
-				if ( (itr = tcp_flagsmap.find("PSH")) != tcp_flagsmap.end() )
-					itr->second++;
-			} else if (tcp_hdr->rst) {	// if "RST" flag is set
-				if ( (itr = tcp_flagsmap.find("RST")) != tcp_flagsmap.end() )
-					itr->second++;
-			} else if (tcp_hdr->syn) {	// if "SYN" flag is set
-				if ( (itr = tcp_flagsmap.find("SYN")) != tcp_flagsmap.end() )
-					itr->second++;
-			} else if (tcp_hdr->urg) {	// if "URG" flag is set
-				if ( (itr = tcp_flagsmap.find("URG")) != tcp_flagsmap.end() )
-					itr->second++;
-			} //----------------- end TCP flags info ---------------------------------
-			break;
-		case IPPROTO_UDP:	// UDP type
-			memset(buf, 0x00, sizeof(buf));
-			snprintf(buf, 40, "%hu", ntohs(udp_hdr->source));	// grab TCP source port
-			mapping_elems(buf, udp_sportmap);	// insert into map
-			memset(buf, 0x00, sizeof(buf));
-			snprintf(buf, 40, "%hu", ntohs(udp_hdr->dest));	// grab TCP source port
-			mapping_elems(buf, udp_dportmap);	// insert into map
-			break;
-		case IPPROTO_ICMP:
-			break;
-		default:
-			break;
-	}
-
-	//-------------------- end TCP header parsing -----------------------------------------
 
 }
 
