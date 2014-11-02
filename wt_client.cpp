@@ -39,7 +39,7 @@ struct arp_hdr_t {
     unsigned char __ar_tip[4];		/* Target IP address.  */
 };
 
-map<std::string, int> arp_sha_map;
+map<std::string, int> arp_map;	// to hold ARP packet info
 /******************** end global variables declaration *************************/
 
 int main(int argc, char *argv[]) {
@@ -81,7 +81,8 @@ int main(int argc, char *argv[]) {
 		print_map(dst_ipaddr_map);
 		cout << endl;
 		cout << "------ Unique ARP participants ------" << endl << endl;
-		print_map(arp_sha_map);
+		print_map(arp_map);
+		cout << endl;
 
 		pcap_close(pcp);	// close packet capture file
 	}
@@ -136,14 +137,23 @@ void parse_hdrs(const u_char *pkt) {
 		mapping_elems(src_ipaddr, src_ipaddr_map);	// have a unique count of src IP addr in a map
 		string dst_ipaddr( inet_ntoa( *(struct in_addr *) &ip_hdr->daddr) );	// destination IP addr like done for src IP addr
 		mapping_elems(dst_ipaddr, dst_ipaddr_map);
-	} else if (ntohs(eth_hdr->h_proto) == ETH_P_ARP) { 	// parsing ARP packets
-		char ip_buf[20];
-		snprintf( ip_buf, 20, "%d.%d.%d.%d", arp_hdr->__ar_sip[0], arp_hdr->__ar_sip[1], arp_hdr->__ar_sip[2], arp_hdr->__ar_sip[3]);
-		cout << "testing, ip_buf: " << ip_buf << endl;
-		/*for (int i = 0; i < 4; i++) {
-			ip_buf[] = ntohs(arp_hdr->__ar_sip));
-			
-		}*/
+	} else if (ntohs(eth_hdr->h_proto) == ETH_P_ARP) { 	//----------------- ARP packet parsing -------------------------
+
+		char buf[40];	// char array to hold hardware address
+		memset(buf, 0x00, sizeof(buf));	// zero-out buffer initially
+		snprintf(buf, 40, "%02x:%02x:%02x:%02x:%02x:%02x", arp_hdr->__ar_sha[0], arp_hdr->__ar_sha[1], arp_hdr->__ar_sha[2], arp_hdr->__ar_sha[3], arp_hdr->__ar_sha[4], arp_hdr->__ar_sha[5]);	// each octet byte written in hex
+		string sha(buf);	// char array to string
+
+		memset(buf, 0x00, sizeof(buf));	// flush out buffer for reuse
+		snprintf(buf, 40, "%d.%d.%d.%d", arp_hdr->__ar_sip[0], arp_hdr->__ar_sip[1], arp_hdr->__ar_sip[2], arp_hdr->__ar_sip[3]);	// grab sender IP address octets
+		string arp_ip(buf);
+
+		memset(buf, 0x00, sizeof(buf));
+		snprintf( buf, 40, "%s / %s", sha.c_str(), arp_ip.c_str() );	// sender hardware address along with sender IP address
+		string mac_ip(buf);
+		mapping_elems(mac_ip, arp_map);	// insert into hash map
+		//-------------------------------- end ARP parsing -------------------------------------------------------------
+
 	}
 		
 	//-------------------- end IP header parsing ------------------------------------------
