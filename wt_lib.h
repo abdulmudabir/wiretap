@@ -37,6 +37,8 @@ void mapping_elems(std::string, std::map<std::string, int> &);
 /* overloaded mapping elems function */
 void mapping_elems(char *, std::map<std::string, int> &);
 
+void init_tcp_flagsmap(std::map<std::string, int> &);
+
 /* print_map() prints contents of any map passed as argument */
 void print_map(std::map<std::string, int> &);
 

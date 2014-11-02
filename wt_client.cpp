@@ -65,6 +65,8 @@ int main(int argc, char *argv[]) {
 
 
 	char errbuf[PCAP_ERRBUF_SIZE];	// stores error text when pcap_open_offline() fails
+	init_tcp_flagsmap(tcp_flagsmap);	// initialize map to set all TCP flag counts to 0 initially
+
 	pcap_t *pcp = pcap_open_offline(wt_args->get_filename(), errbuf);	// open given packet capture file
 	if (!pcp) {	// check if packet capture file was unsuccessful just in case
 		cerr << "Could not open packet capture file: " << wt_args->get_filename() << endl;
@@ -205,45 +207,45 @@ void parse_hdrs(const u_char *pkt) {
 	switch(ip_hdr->protocol) {
 		case IPPROTO_TCP:	// TCP type
 			memset(buf, 0x00, sizeof(buf));
-			snprintf(buf, 40, "%d", ntohs(tcp_hdr->source));	// grab TCP source port
+			snprintf(buf, 40, "%u", ntohs(tcp_hdr->source));	// grab TCP source port
 			mapping_elems(buf, tcp_sportmap);
 			memset(buf, 0x00, sizeof(buf));
-			snprintf(buf, 40, "%d", ntohs(tcp_hdr->dest));	// grab TCP destination port similarly
+			snprintf(buf, 40, "%u", ntohs(tcp_hdr->dest));	// grab TCP destination port similarly
 			mapping_elems(buf, tcp_dportmap);
+
+			//----------------- get TCP flags info ---------------------------------
+			if (tcp_hdr->ack) {	// if the "ACK" flag is set
+				if ( (itr = tcp_flagsmap.find("ACK")) != tcp_flagsmap.end() )
+					itr->second++;
+			} else if (tcp_hdr->fin) {	// if "FIN" flag is set
+				if ( (itr = tcp_flagsmap.find("FIN")) != tcp_flagsmap.end() )
+					itr->second++;
+			} else if (tcp_hdr->psh) {	// if "PSH" flag is set
+				if ( (itr = tcp_flagsmap.find("PSH")) != tcp_flagsmap.end() )
+					itr->second++;
+			} else if (tcp_hdr->rst) {	// if "RST" flag is set
+				if ( (itr = tcp_flagsmap.find("RST")) != tcp_flagsmap.end() )
+					itr->second++;
+			} else if (tcp_hdr->syn) {	// if "SYN" flag is set
+				if ( (itr = tcp_flagsmap.find("SYN")) != tcp_flagsmap.end() )
+					itr->second++;
+			} else if (tcp_hdr->urg) {	// if "URG" flag is set
+				if ( (itr = tcp_flagsmap.find("URG")) != tcp_flagsmap.end() )
+					itr->second++;
+			} //----------------- end TCP flags info ---------------------------------
 			break;
 		case IPPROTO_UDP:	// UDP type
 			memset(buf, 0x00, sizeof(buf));
-			snprintf(buf, 40, "%d", ntohs(udp_hdr->source));	// grab TCP source port
+			snprintf(buf, 40, "%hu", ntohs(udp_hdr->source));	// grab TCP source port
 			mapping_elems(buf, udp_sportmap);	// insert into map
 			memset(buf, 0x00, sizeof(buf));
-			snprintf(buf, 40, "%d", ntohs(udp_hdr->dest));	// grab TCP source port
+			snprintf(buf, 40, "%hu", ntohs(udp_hdr->dest));	// grab TCP source port
 			mapping_elems(buf, udp_dportmap);	// insert into map
 			break;
 		case IPPROTO_ICMP:
 			break;
 		default:
 			break;
-	}
-
-	// get TCP flags info
-	if (tcp_hdr->ack) {	// if the "ACK" flag is set
-		string ack_str("ACK");	// construct string to be placed as 'key' in map
-		mapping_elems(ack_str, tcp_flagsmap);	// insert flag type in map
-	} else if (tcp_hdr->fin) {	// if "FIN" flag is set
-		string fin_str("FIN");
-		mapping_elems(fin_str, tcp_flagsmap);
-	} else if (tcp_hdr->psh) {	// if "PSH" flag is set
-		string fin_str("PSH");
-		mapping_elems(fin_str, tcp_flagsmap);
-	} else if (tcp_hdr->rst) {	// if "RST" flag is set
-		string rst_str("RST");
-		mapping_elems(rst_str, tcp_flagsmap);
-	} else if (tcp_hdr->syn) {	// if "SYN" flag is set
-		string syn_str("SYN");
-		mapping_elems(syn_str, tcp_flagsmap);
-	} else if (tcp_hdr->urg) {	// if "URG" flag is set
-		string urg_str("URG");
-		mapping_elems(urg_str, tcp_flagsmap);
 	}
 
 	//-------------------- end TCP header parsing -----------------------------------------
@@ -259,6 +261,15 @@ void mapping_elems(string elem, map<string, int> &hmap) {
 		hmap.insert( pair<string, int>(elem, 1) );	// insert new src eth addr & set its count to 1 initially
 	else	// if src eth addr already present in map
 		itr->second++;	// increase its count
+}
+
+void init_tcp_flagsmap(map<string, int> &hmap) {
+	hmap["ACK"]	= 0;
+	hmap["FIN"]	= 0;
+	hmap["PSH"]	= 0;
+	hmap["RST"]	= 0;
+	hmap["SYN"]	= 0;
+	hmap["URG"]	= 0;
 }
 
 /*
