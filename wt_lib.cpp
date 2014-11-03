@@ -19,8 +19,6 @@
 
 using namespace std;
 
-static int verbose_flag = 0;	// verbose mode
-
 // enter long options to be used at cli
 static struct option long_options[] = {
 	{"help",	no_argument,       0, 'h'},
@@ -41,14 +39,15 @@ PacketParser::PacketParser(char *str) {
 	memcpy(this->filename, str, strlen(str));	// register filename provided at cli
 }
 
-void PacketParser::usage(FILE *file) {
+/* instructions on using program command line options */
+void usage(FILE *file) {
 	if (file == NULL)
 		file = stdout;	// set standard output by default
 
 	fprintf(file, "wiretap [OPTIONS] example.pcap\n"
 				"	-h or --help			Print this help screen\n"
                 "        -o example.pcap         \n"
-				"	  or --open example.pcap 		Open packet capture file 'example.pcap'\n");
+				"	 or --open example.pcap 	Open packet capture file 'example.pcap'\n");
 }
 
 char * PacketParser::get_filename() {
@@ -63,20 +62,19 @@ void PacketParser::parse_args(int argc, char *argv[], PacketParser **wt_args) {	
 
     int g;	// grab return value of getopt_long()
     int option_index;	// array index that getopt_long() shall set
-    while ( (g = getopt_long(argc, argv, "ho:v", long_options, &option_index)) != -1) {
+    while ( (g = getopt_long(argc, argv, "ho:", long_options, &option_index)) != -1) {
     	switch(g) {
     		case 'h':
-    			(*wt_args)->usage(stdout);
+    			usage(stdout);
+                exit(1);
     			break;
-    		case 'v':
-    			verbose_flag = 1;
-    			break;
-    		case 'o':
+     		case 'o':
     			*wt_args = new PacketParser(optarg);
     			break;
     		default:
- 				(*wt_args)->usage(stdout);
-    			exit(1);   			
+ 				usage(stdout);
+    			exit(1);
+                break;
     	}
     }
 

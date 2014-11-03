@@ -24,10 +24,12 @@ class PacketParser {
 	public:
 		PacketParser();	// default constructor
 		PacketParser(char *);	// parameterized constructor
-		void usage(FILE *);	// instructs on using program options
 		void parse_args(int, char **, PacketParser **);	// scans through cli arguments
 		char * get_filename();	// retrieve packet capture filename
 };
+
+/* instructions on using program command line options */
+void usage(FILE *);
 
 /* pcap_loop()'s callback routine */
 void pcap_callback(u_char *, const struct pcap_pkthdr*, const u_char *);

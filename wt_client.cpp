@@ -78,14 +78,13 @@ int main(int argc, char *argv[]) {
 	PacketParser *wt_args = NULL;	// assign to NULL to avoid "uninitialization" warning
 	wt_args->parse_args(argc, argv, &wt_args);	// parse command-line arguments
 
-
 	char errbuf[PCAP_ERRBUF_SIZE];	// stores error text when pcap_open_offline() fails
 	init_tcp_flagsmap(tcp_flagsmap);	// initialize map to set all TCP flag counts to 0 initially
 
 	pcap_t *pcp = pcap_open_offline(wt_args->get_filename(), errbuf);	// open given packet capture file
 	if (!pcp) {	// check if packet capture file was unsuccessful just in case
 		cerr << "Could not open packet capture file: " << wt_args->get_filename() << endl;
-		wt_args->usage(stderr);
+		usage(stderr);
 		exit(1);
 	}
 
