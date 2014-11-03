@@ -46,6 +46,8 @@ typedef struct {
 } arp_hdr_t;
 
 map<std::string, int> arp_map;	// to hold ARP packet info
+
+map<std::string, int> mapofothers;	// to store other than IPv4 or ARP
 //-----------TCP header --------------------------------------------------------------
 
 map<std::string, int> tcp_sportmap;	// to hold tcp source ports
@@ -53,11 +55,14 @@ map<std::string, int> tcp_dportmap;	// to hold tcp destination ports
 
 map<std::string, int> tcp_flagsmap;	// to store tcp flags (ACK, FIN, etc.) counts
 
-/* for UDP */
+/* for type 2 */
+map<std::string, int> mapof2;	// to store protocol 2 type entries
+
+/* for type UDP */
 map<std::string, int> udp_sportmap;	// to hold udp source ports
 map<std::string, int> udp_dportmap;	// to hold udp destination ports
 
-/* for ICMP */
+/* for type ICMP */
 map<std::string, int> icmp_typemap;	// to hold ICMP types if any
 map<std::string, int> icmp_codemap;	// to hold ICMP codes if any
 /******************** end global variables declaration *************************/
@@ -96,6 +101,16 @@ int main(int argc, char *argv[]) {
 		// now display network layer content in packet
 		cout << "\n" << "=============== Network layer ===============" << endl << endl;
 		cout << "------ Network layer protocols ------" << endl << endl;
+
+		// iterator through map that contains other lesser known protocols
+		for (itr = mapofothers.begin(); itr != mapofothers.end(); itr++) {
+			cout << itr->first << "\t\t" << itr->second << endl;
+		}
+		
+		cout << "ARP" << "\t\t\t" << count_unique(arp_map) << endl;
+		cout << "IP" << "\t\t\t" << count_unique(src_ipaddr_map) << endl;
+		cout << endl;
+
 		cout << "------ Source IP addresses ------" << endl << endl;
 		print_map(src_ipaddr_map);
 		cout << endl;
@@ -107,8 +122,12 @@ int main(int argc, char *argv[]) {
 		cout << endl;
 		cout << "\n" << "=============== Transport layer ===============" << endl << endl;
 		cout << "------ Transport layer protocols ------" << endl << endl;
-		itr = icmp_typemap.begin();
-		cout << "ICMP" << "\t\t" << itr->second << endl << endl;
+		
+		cout << "ICMP" << "\t\t" << count_unique(icmp_typemap) << endl;	/* print counts */
+		cout << "TCP" << "\t\t" << count_unique(tcp_sportmap) << endl;
+		cout << "UDP" << "\t\t" << count_unique(udp_sportmap) << endl;
+		cout << endl;
+
 		cout << "------ Transport layer: TCP ------" << endl << endl;
 		cout << "------ Source TCP ports ------" << endl << endl;
 		print_map(tcp_sportmap);
@@ -202,7 +221,8 @@ void parse_hdrs(const u_char *pkt) {
 
 		// parse differently for different protocols
 		switch(ip_hdr->protocol) {
-			// case 2:
+			case 2:
+				break;
 
 			case IPPROTO_TCP:	// TCP type
 				memset(buf, 0x00, sizeof(buf));
@@ -272,6 +292,14 @@ void parse_hdrs(const u_char *pkt) {
 		mapping_elems(mac_ip, arp_map);	// insert into hash map
 		//-------------------------------- end ARP parsing -------------------------------------------------------------
 
+	} else {
+		memset(buf, 0x00, sizeof(buf));	// flush-out buffer
+		int dec_proto = ntohs(eth_hdr->h_proto);	// decimal form of some protocol found
+		char hex_proto[10];	// to store hexadecimal form of a protocol found earlier
+		snprintf(hex_proto, 10, "0x%x", dec_proto);
+		snprintf(buf, 40, "%d (%s)", dec_proto, hex_proto);
+		string proto_str(buf);	// convert to string
+		mapping_elems(proto_str, mapofothers);
 	}
 
 }
@@ -312,4 +340,15 @@ void mapping_elems(char * buffer, map<string, int> &anymap) {
  void print_map(map<string, int> &anymap) {
  	for ( itr = anymap.begin(); itr != anymap.end(); itr++)
  		cout << itr->first << "\t\t" << itr->second << endl;
+ }
+
+ int count_unique(map<string, int> &anymap) {
+
+ 	int count = 0;
+ 	for (itr = anymap.begin(); itr != anymap.end(); itr++) {
+ 		count += itr->second;
+ 	}
+
+ 	return count;
+ 
  }

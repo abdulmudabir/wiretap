@@ -42,4 +42,6 @@ void init_tcp_flagsmap(std::map<std::string, int> &);
 /* print_map() prints contents of any map passed as argument */
 void print_map(std::map<std::string, int> &);
 
+int count_unique(std::map<std::string, int> &);
+
 #endif
