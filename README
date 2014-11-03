@@ -27,7 +27,7 @@ How to compile:
 How to run wiretap:
     $ ./wiretap --open traceroute.pcap
 
-pipe it to some an editor like "less"
+pipe it to some editor like "less"
     $ ./wiretap --open traceroute.pcap | less
 
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
