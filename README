@@ -8,7 +8,16 @@ uname: anukatan
 Name:  Abdul Mudabir Siraj Patel
 uname: abdpatel
 
------------------------------------------------
+-------------------------------------------------------------------------------------------------------
+
+	"wiretap" is a basic implementation of the rather well-known packet capture program – Wireshark. 
+For this project, packets that originate from the Ethernet network device are being scanned to 
+recognize known protocols-related information from the packets among other supplementary information.Only 
+IPv4 packets are scanned for the purpose of this project. Knowing the standard form of a packet - header 
+sections like ETH, IP, TCP, PACKET_DATA, this program scans through each of those headers one by one to 
+finally display the packet capture summary.
+
+-------------------------------------------------------------------------------------------------------
 
 Included Files and Purpose (feel free to change as necessary)
 
@@ -20,7 +29,8 @@ wt_lib.h      :   Header file for function declarations used for running the wir
 --------------------------------------------------------------------------------------------------
 
 How to compile:
-    $ g++ wt_client.cpp wt_lib.cpp -lpcap -Wall -Wextra -g -o wiretap
+    $ make
+OR  $ g++ wt_client.cpp wt_lib.cpp -lpcap -Wall -Wextra -g -o wiretap
 
 --------------------------------------------------------------------------------------------------
 
