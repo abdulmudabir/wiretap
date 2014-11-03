@@ -17,5 +17,6 @@ $(BIN): $(OBJ)
 
 $(SRC):
 
+# remove object files, program executable
 clean:
 	rm -f *.o wiretap
