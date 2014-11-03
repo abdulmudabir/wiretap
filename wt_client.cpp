@@ -21,9 +21,15 @@ using namespace std;
 #include "/usr/include/arpa/inet.h"
 #include "/usr/include/pcap/bpf.h"
 #include "/usr/include/linux/if_ether.h"
+#include <sys/time.h>
 
 /******************** declare global variables *************************/
-
+//---------- for Packet capture summary  ---------------------------------------------
+// static long pkt_start_time;
+static int pkt_count;	// to count total number of packets being scanned
+static unsigned int min_pktlen;	// store minimum packet length
+static unsigned int max_pktlen;	// store maximum packet length
+static int pktlen_sum;	// sum of lengths of all packets
 //---------- ethernet address maps ---------------------------------------------------
 map<std::string, int> src_ethaddr_map;	// "ordered map" to store source ethernet addresses
 map<std::string, int> dst_ethaddr_map;	// "ordered map" to store destination ethernet addresses
@@ -88,11 +94,20 @@ int main(int argc, char *argv[]) {
 		exit(1);
 	} else {
 
-		// first, get set to display link layer content in packet
+		pcap_loop(pcp, -1, pcap_callback, NULL);	// loop through each packet until all packets are parsed
 		cout << endl << setfill('*') << setw(80) << "\n\n";
+		cout << "==================== Packet capture summary ====================" << endl << endl;
+		cout << "Packets in capture: \t\t" << pkt_count << endl;
+
+		cout << "Minimum packet size: \t\t" << min_pktlen << endl;
+		cout << "Maximum packet size: \t\t" << max_pktlen << endl;
+		cout << "Average packet size: \t\t";
+		fprintf( stdout, "%.2f", (pktlen_sum / (float) pkt_count) );
+		cout << endl;
+		
+		// first, get set to display link layer content in packet
 		cout << "=============== Link layer ===============" << endl << endl;
 		cout << "------ Source ethernet addresses ------" << endl << endl;
-		pcap_loop(pcp, -1, pcap_callback, NULL);	// loop through each packet until all packets are parsed
 		print_map(src_ethaddr_map);
 		cout << endl;
 		cout << "------ Destination ethernet addresses ------" << endl << endl;
@@ -123,6 +138,7 @@ int main(int argc, char *argv[]) {
 		cout << "\n" << "=============== Transport layer ===============" << endl << endl;
 		cout << "------ Transport layer protocols ------" << endl << endl;
 		
+		cout << "2" << "\t\t" << count_unique(mapof2) << endl;
 		cout << "ICMP" << "\t\t" << count_unique(icmp_typemap) << endl;	/* print counts */
 		cout << "TCP" << "\t\t" << count_unique(tcp_sportmap) << endl;
 		cout << "UDP" << "\t\t" << count_unique(udp_sportmap) << endl;
@@ -172,6 +188,28 @@ int main(int argc, char *argv[]) {
  */
 void pcap_callback(u_char *user, const struct pcap_pkthdr* phdr, const u_char *packet) {
 	
+	pkt_count++;	// increment count of packets each time the callback is called for a packet
+
+	/*if (pkt_count == 1) {	// first packet's arrival time
+		pkt_start_time = phdr->ts.tv_sec;	// get packets capture start time
+		tzset();	// time zone declaration
+	}*/
+
+	/* keep a tab on minimum packet size */
+	if (min_pktlen == 0)	// first packet being scanned
+		min_pktlen = phdr->len;
+	else if (phdr->len < min_pktlen)
+		min_pktlen = phdr->len;	// set new minimum if a packet size with lesser size is encountered
+
+	/* likewise, track maximum packet size */
+	if (max_pktlen == 0)	// first packet
+		max_pktlen = phdr->len;
+	else if (phdr->len > max_pktlen)
+		max_pktlen = phdr->len;
+
+	/* keep track of average packet size */
+	pktlen_sum += phdr->len;
+
 	/********* parse header types *********/
 	parse_hdrs(packet);
 
@@ -219,9 +257,12 @@ void parse_hdrs(const u_char *pkt) {
 		struct udphdr *udp_hdr = (struct udphdr *) tcp_hdr;	// cast to UDP type
 		struct icmphdr *icmp_hdr = (struct icmphdr *) tcp_hdr;	// cast to ICMP type
 
+		string str2("2");	// for protocol type: "2"
+
 		// parse differently for different protocols
 		switch(ip_hdr->protocol) {
 			case 2:
+				mapping_elems(str2, mapof2);
 				break;
 
 			case IPPROTO_TCP:	// TCP type
