@@ -14,6 +14,10 @@
 #include <map>
 #include "/usr/include/pcap/pcap.h"	// standard pcap library
 
+/*
+ * class to parse through all command line arguments and set up program 
+ * initializer variables among other things.
+ */
 class PacketParser {
 	private:
 		char filename[100];
@@ -37,11 +41,19 @@ void mapping_elems(std::string, std::map<std::string, int> &);
 /* overloaded mapping elems function */
 void mapping_elems(char *, std::map<std::string, int> &);
 
+/* set each TCP flag (ACK, FIN, etc.) to 0 initially 
+ * init_tcp_flagsmap() -> void
+ */
 void init_tcp_flagsmap(std::map<std::string, int> &);
 
 /* print_map() prints contents of any map passed as argument */
 void print_map(std::map<std::string, int> &);
 
+/*
+ * this function counts the total number of unique fields stored as 'keys' in 
+ * the map by adding each type's count and returning the final total count
+ * count_unique() -> int
+ */
 int count_unique(std::map<std::string, int> &);
 
 #endif

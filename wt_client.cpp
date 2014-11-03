@@ -96,14 +96,14 @@ int main(int argc, char *argv[]) {
 
 		pcap_loop(pcp, -1, pcap_callback, NULL);	// loop through each packet until all packets are parsed
 		cout << endl << setfill('*') << setw(80) << "\n\n";
-		cout << "==================== Packet capture summary ====================" << endl << endl;
+		cout << "=============== Packet capture summary ===============" << endl << endl;
 		cout << "Packets in capture: \t\t" << pkt_count << endl;
 
 		cout << "Minimum packet size: \t\t" << min_pktlen << endl;
 		cout << "Maximum packet size: \t\t" << max_pktlen << endl;
 		cout << "Average packet size: \t\t";
 		fprintf( stdout, "%.2f", (pktlen_sum / (float) pkt_count) );
-		cout << endl;
+		cout << endl << endl;
 		
 		// first, get set to display link layer content in packet
 		cout << "=============== Link layer ===============" << endl << endl;
@@ -261,7 +261,7 @@ void parse_hdrs(const u_char *pkt) {
 
 		// parse differently for different protocols
 		switch(ip_hdr->protocol) {
-			case 2:
+			case 2:	// for type: "2"
 				mapping_elems(str2, mapof2);
 				break;
 
@@ -356,6 +356,7 @@ void mapping_elems(string elem, map<string, int> &hmap) {
 		itr->second++;	// increase its count
 }
 
+/* set each TCP flag (ACK, FIN, etc.) to 0 initially */
 void init_tcp_flagsmap(map<string, int> &hmap) {
 	hmap["ACK"]	= 0;
 	hmap["FIN"]	= 0;
@@ -383,6 +384,11 @@ void mapping_elems(char * buffer, map<string, int> &anymap) {
  		cout << itr->first << "\t\t" << itr->second << endl;
  }
 
+/*
+ * this function counts the total number of unique fields stored as 'keys' in 
+ * the map by adding each type's count and returning the final total count
+ * count_unique() -> int
+ */
  int count_unique(map<string, int> &anymap) {
 
  	int count = 0;

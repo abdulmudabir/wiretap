@@ -24,7 +24,6 @@ static int verbose_flag = 0;	// verbose mode
 // enter long options to be used at cli
 static struct option long_options[] = {
 	{"help",	no_argument,       0, 'h'},
-	{"verbose", no_argument,       0, 'v'}, 
 	{"open",    required_argument, 0, 'o'},
 	{0, 0, 0, 0}	// last element needs to be filled as all zeros
 };
@@ -48,8 +47,8 @@ void PacketParser::usage(FILE *file) {
 
 	fprintf(file, "wiretap [OPTIONS] example.pcap\n"
 				"	-h or --help			Print this help screen\n"
-				"	-v or --verbose 		verbose flag, print additional information\n"
-				"	--open example.pcap 		Open packet capture file 'example.pcap'\n");
+                "        -o example.pcap         \n"
+				"	  or --open example.pcap 		Open packet capture file 'example.pcap'\n");
 }
 
 char * PacketParser::get_filename() {
