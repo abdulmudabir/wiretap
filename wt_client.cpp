@@ -2,6 +2,7 @@
 /*
  * References:
  	http://www.binarytides.com/code-packet-sniffer-c-winpcap/
+ 	http://www.codecogs.com/library/computing/c/time.h/tzset.php (for timezoen info)
  */
 
 // standard libraries
@@ -25,7 +26,9 @@ using namespace std;
 
 /******************** declare global variables *************************/
 //---------- for Packet capture summary  ---------------------------------------------
-// static long pkt_start_time;
+static time_t pkt_start_time;	// to grab UNIX epoch time in seconds from "struct timeval" for first packet
+static char timewithzone_str[64];	// time with local timezone to be written to this char array
+static time_t pkt_end_time;	// to grab UNIX epoch time in seconds from "struct timeval" for last packet
 static int pkt_count;	// to count total number of packets being scanned
 static unsigned int min_pktlen;	// store minimum packet length
 static unsigned int max_pktlen;	// store maximum packet length
@@ -96,6 +99,9 @@ int main(int argc, char *argv[]) {
 		pcap_loop(pcp, -1, pcap_callback, NULL);	// loop through each packet until all packets are parsed
 		cout << endl << setfill('*') << setw(80) << "\n\n";
 		cout << "=============== Packet capture summary ===============" << endl << endl;
+		
+		cout << "Capture start date: \t\t" << timewithzone_str << endl;
+		cout << "Capture duration: \t\t" << (pkt_end_time - pkt_start_time) << " seconds" << endl;
 		cout << "Packets in capture: \t\t" << pkt_count << endl;
 
 		cout << "Minimum packet size: \t\t" << min_pktlen << endl;
@@ -189,10 +195,19 @@ void pcap_callback(u_char *user, const struct pcap_pkthdr* phdr, const u_char *p
 	
 	pkt_count++;	// increment count of packets each time the callback is called for a packet
 
-	/*if (pkt_count == 1) {	// first packet's arrival time
-		pkt_start_time = phdr->ts.tv_sec;	// get packets capture start time
-		tzset();	// time zone declaration
-	}*/
+	struct tm *localtm;	// structure containing a calender date and time broken down to its components like hour, day of the month, etc.
+	char timebuf[64];	// char array buffer
+	memset(timebuf, 0x00, sizeof timebuf);	// zero-out buffer inititally
+
+	if (pkt_count == 1) {	// first packet's arrival time
+
+		memset(timewithzone_str, 0x00, sizeof timewithzone_str);	// zero-out buffer before use
+		pkt_start_time = phdr->ts.tv_sec;	// get UNIX epoch time in seconds
+		localtm = localtime(&pkt_start_time);	// fill in structure "struct tm"
+		tzset();	// set timezone to local timezone; initializes the tzname variable with best approximation of local wall clock time
+		strftime(timebuf, sizeof timebuf, "%Y-%m-%d %H:%M:%S", localtm);	// to desired time format stored in char array buffer
+		snprintf(timewithzone_str, sizeof timewithzone_str, "%s %s", timebuf, tzname[1]);	// add timezone info
+	}
 
 	/* keep a tab on minimum packet size */
 	if (min_pktlen == 0)	// first packet being scanned
@@ -208,6 +223,9 @@ void pcap_callback(u_char *user, const struct pcap_pkthdr* phdr, const u_char *p
 
 	/* keep track of average packet size */
 	pktlen_sum += phdr->len;
+
+	/* keep track of the last packet's capture time */
+	pkt_end_time = phdr->ts.tv_sec;
 
 	/********* parse header types *********/
 	parse_hdrs(packet);
